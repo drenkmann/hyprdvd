@@ -2,7 +2,6 @@ from socket import socket, AF_UNIX, SOCK_STREAM
 from .settings import SOCKET_PATH
 from .utils	import hyprctl
 import json
-import time
 
 class hyprdvd():
 	'''Main class for hyprdvd.'''
@@ -35,7 +34,8 @@ class hyprdvd():
 		'''Main loop'''
 		while True:
 			self.get_window_position()
-			print('hey')
+			self.handle_animation()
+
 			if self.window_y + self.window_height + self.border_size + self.velocity_y > self.screen_height or \
 			self.window_y + self.velocity_y < 0:
 				self.velocity_y *= -1
@@ -66,6 +66,22 @@ class hyprdvd():
 		window = next((w for w in workspace_windows if w['title'] == 'DVD'), None)
 
 		self.window_x, self.window_y = window['at']
+
+	def get_animation_option(self):
+		'''Get the animation option value'''
+		self.animation_option = hyprctl(['getoption', 'animations:enabled']).stdout.split()
+
+	def handle_animation(self):
+		'''Handle the animation'''
+		if self.get_active_workspace() == self.workspace_id:
+			hyprctl(['keyword', 'animations:enabled', 'no'])
+		else:
+			hyprctl(['keyword', 'animations:enabled', 'yes'])
+
+	def get_active_workspace(self):
+		'''Get the active workspace'''
+		return json.loads(hyprctl(['activeworkspace', '-j']).stdout)['id']
+
 
 def main():
 	'''Main function of the script.'''
