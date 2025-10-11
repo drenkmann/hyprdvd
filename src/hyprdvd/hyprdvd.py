@@ -8,7 +8,7 @@ class hyprdvd():
 	'''Main class for hyprdvd.'''
 	def __init__(self, event_data):
 		self.address = f'0x{event_data[0]}'
-		self.workspace_id = event_data[1]
+		self.workspace_id = int(event_data[1])
 
 		self.get_screen_size()
 
@@ -16,6 +16,10 @@ class hyprdvd():
 		self.window_height = 400
 
 		self.velocity = 2
+
+		self.get_window_position()
+
+		print(f'Window position: {self.window_x}, {self.window_y}')
 
 	def loop(self):
 		'''Main loop'''
@@ -30,6 +34,14 @@ class hyprdvd():
 				self.screen_width = monitor['width'] if not transform else monitor['height']
 				self.screen_height = monitor['height'] if not transform else monitor['width']
 				break
+
+	def get_window_position(self):
+		'''Get the window position'''
+		clients = json.loads(hyprctl(['clients', '-j']).stdout)
+		workspace_windows = [c for c in clients if c['workspace']['id'] == self.workspace_id]
+		window = next((w for w in workspace_windows if w['title'] == 'DVD'), None)
+
+		self.window_x, self.window_y = window['at']
 
 def main():
 	'''Main function of the script.'''
