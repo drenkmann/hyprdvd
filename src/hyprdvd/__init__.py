@@ -1,0 +1,1 @@
+from .hyprdvd import main
