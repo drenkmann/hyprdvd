@@ -18,7 +18,8 @@ class hyprdvd():
 		self.velocity_x = 2
 		self.velocity_y = 2
 
-		self.get_window_position()
+		if not self.get_window_position():
+			return
 
 		hyprctl(['dispatch', 'setfloating', 'title:^(DVD)$'])
 		hyprctl(['dispatch', 'resizewindowpixel', 'exact', 
@@ -30,10 +31,16 @@ class hyprdvd():
 
 		self.loop()
 
+		if self.get_animation_option:
+			hyprctl(['keyword', 'animations:enabled', 'yes'])
+		else:
+			hyprctl(['keyword', 'animations:enabled', 'no'])
+
 	def loop(self):
 		'''Main loop'''
 		while True:
-			self.get_window_position()
+			if not self.get_window_position():
+				break
 			self.handle_animation()
 
 			if self.window_y + self.window_height + self.border_size + self.velocity_y > self.screen_height or \
@@ -65,11 +72,15 @@ class hyprdvd():
 		workspace_windows = [c for c in clients if c['workspace']['id'] == self.workspace_id]
 		window = next((w for w in workspace_windows if w['title'] == 'DVD'), None)
 
+		if not window:
+			return False
+
 		self.window_x, self.window_y = window['at']
+		return True
 
 	def get_animation_option(self):
 		'''Get the animation option value'''
-		self.animation_option = hyprctl(['getoption', 'animations:enabled']).stdout.split()
+		self.animation_option = hyprctl(['getoption', 'animations:enabled']).stdout.split()[1]
 
 	def handle_animation(self):
 		'''Handle the animation'''
