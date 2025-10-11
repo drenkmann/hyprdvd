@@ -11,19 +11,43 @@ class hyprdvd():
 		self.workspace_id = int(event_data[1])
 
 		self.get_screen_size()
+		self.border_size = int(hyprctl(['getoption', 'general:border_size']).stdout.split()[1])
 
 		self.window_width = 700
 		self.window_height = 400
 
-		self.velocity = 2
+		self.velocity_x = 2
+		self.velocity_y = 2
 
 		self.get_window_position()
 
-		print(f'Window position: {self.window_x}, {self.window_y}')
+		hyprctl(['dispatch', 'setfloating', 'title:^(DVD)$'])
+		hyprctl(['dispatch', 'resizewindowpixel', 'exact', 
+						str(self.window_width), str(self.window_height), ',title:^(DVD)$'
+		])
+		hyprctl(['dispatch', 'movewindowpixel', 'exact', 
+						str(self.border_size) , str(self.border_size), ',title:^(DVD)$'
+		])
+
+		self.loop()
 
 	def loop(self):
 		'''Main loop'''
-		pass
+		while True:
+			self.get_window_position()
+			print('hey')
+			if self.window_y + self.window_height + self.border_size + self.velocity_y > self.screen_height or \
+			self.window_y + self.velocity_y < 0:
+				self.velocity_y *= -1
+
+			if self.window_x + self.window_width + self.border_size + self.velocity_x > self.screen_width or \
+			self.window_x + self.velocity_y < 0:
+				self.velocity_x *= -1
+
+			hyprctl(['dispatch', 'movewindowpixel', 'exact', 
+							str(self.window_x + self.velocity_x) , str(self.window_y + self.velocity_y), ',title:^(DVD)$'
+			])
+
 
 	def get_screen_size(self):
 		'''Get the screen size'''
