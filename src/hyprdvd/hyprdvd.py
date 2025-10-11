@@ -1,8 +1,9 @@
 from socket import socket, AF_UNIX, SOCK_STREAM
-from .settings import SOCKET_PATH
-from .utils	import hyprctl
 from multiprocessing import Process
 import json
+import random
+from .settings import SOCKET_PATH
+from .utils	import hyprctl
 
 class hyprdvd():
 	'''Main class for hyprdvd.'''
@@ -22,14 +23,7 @@ class hyprdvd():
 		if not self.get_window_position():
 			return
 
-		hyprctl(['dispatch', 'setfloating', f'address:{self.address}'])
-		hyprctl(['dispatch', 'resizewindowpixel', 'exact', 
-						str(self.window_width), str(self.window_height), f',address:{self.address}'
-		])
-		hyprctl(['dispatch', 'movewindowpixel', 'exact', 
-						str(self.border_size) , str(self.border_size), f',address:{self.address}'
-		])
-
+		self.set_window_start()
 		self.loop()
 
 		if self.get_animation_option:
@@ -56,6 +50,24 @@ class hyprdvd():
 							str(self.window_x + self.velocity_x) , str(self.window_y + self.velocity_y), f',address:{self.address}'
 			])
 
+	def set_window_start(self):
+		'''Set a random positon and direction'''
+		random_x = random.randrange(0, self.screen_width - self.window_width)
+		random_y = random.randrange(0, self.screen_height - self.window_height)
+
+		if random.randrange(1, 100) % 2 == 0:
+			self.velocity_x *= -1
+
+		if random.randrange(101, 200) % 2 == 0:
+			self.velocity_y *= -1
+
+		hyprctl(['dispatch', 'setfloating', f'address:{self.address}'])
+		hyprctl(['dispatch', 'resizewindowpixel', 'exact', 
+						str(self.window_width), str(self.window_height), f',address:{self.address}'
+		])
+		hyprctl(['dispatch', 'movewindowpixel', 'exact', 
+						str(random_x) , str(random_y), f',address:{self.address}'
+		])
 
 	def get_screen_size(self):
 		'''Get the screen size'''
