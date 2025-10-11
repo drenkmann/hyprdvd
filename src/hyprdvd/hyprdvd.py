@@ -1,6 +1,7 @@
 from socket import socket, AF_UNIX, SOCK_STREAM
 from .settings import SOCKET_PATH
 from .utils	import hyprctl
+from multiprocessing import Process
 import json
 
 class hyprdvd():
@@ -21,12 +22,12 @@ class hyprdvd():
 		if not self.get_window_position():
 			return
 
-		hyprctl(['dispatch', 'setfloating', 'title:^(DVD)$'])
+		hyprctl(['dispatch', 'setfloating', f'address:{self.address}'])
 		hyprctl(['dispatch', 'resizewindowpixel', 'exact', 
-						str(self.window_width), str(self.window_height), ',title:^(DVD)$'
+						str(self.window_width), str(self.window_height), f',address:{self.address}'
 		])
 		hyprctl(['dispatch', 'movewindowpixel', 'exact', 
-						str(self.border_size) , str(self.border_size), ',title:^(DVD)$'
+						str(self.border_size) , str(self.border_size), f',address:{self.address}'
 		])
 
 		self.loop()
@@ -52,7 +53,7 @@ class hyprdvd():
 				self.velocity_x *= -1
 
 			hyprctl(['dispatch', 'movewindowpixel', 'exact', 
-							str(self.window_x + self.velocity_x) , str(self.window_y + self.velocity_y), ',title:^(DVD)$'
+							str(self.window_x + self.velocity_x) , str(self.window_y + self.velocity_y), f',address:{self.address}'
 			])
 
 
@@ -70,7 +71,7 @@ class hyprdvd():
 		'''Get the window position'''
 		clients = json.loads(hyprctl(['clients', '-j']).stdout)
 		workspace_windows = [c for c in clients if c['workspace']['id'] == self.workspace_id]
-		window = next((w for w in workspace_windows if w['title'] == 'DVD'), None)
+		window = next((w for w in workspace_windows if w['address'] == self.address), None)
 
 		if not window:
 			return False
@@ -106,4 +107,5 @@ def main():
 				event_type, event_data = event.split('>>', 1)
 				event_data = event_data.split(',')
 				if event_type == 'openwindow' and event_data[3] == 'DVD':
-					hyprdvd(event_data)
+					process = Process(target=hyprdvd, args=(event_data,))
+					process.start()
