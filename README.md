@@ -1,6 +1,10 @@
 # Hyprdvd
 
-Bounce that terminal like a DVD screen
+Bounce that terminal like a DVD screen.
+
+# Why?
+
+Good question, I got the idea, made a simple script to test it out and then it got out of hands.
 
 ## Installation and use
 
