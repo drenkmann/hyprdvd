@@ -2,6 +2,7 @@ from socket import socket, AF_UNIX, SOCK_STREAM
 from multiprocessing import Process
 import json
 import random
+import math
 from .settings import SOCKET_PATH
 from .utils	import hyprctl
 
@@ -14,14 +15,10 @@ class hyprdvd():
 		self.get_screen_size()
 		self.border_size = int(hyprctl(['getoption', 'general:border_size']).stdout.split()[1])
 
-		self.window_width = 700
-		self.window_height = 400
+		self.set_window_size()
 
 		self.velocity_x = 2
 		self.velocity_y = 2
-
-		if not self.get_window_position():
-			return
 
 		self.set_window_start()
 		self.loop()
@@ -49,6 +46,13 @@ class hyprdvd():
 			hyprctl(['dispatch', 'movewindowpixel', 'exact', 
 							str(self.window_x + self.velocity_x) , str(self.window_y + self.velocity_y), f',address:{self.address}'
 			])
+
+	def set_window_size(self):
+		'''Set the size of the window relative to the screen size'''
+		resize = 0.4
+
+		self.window_width = math.ceil(self.screen_width * resize)
+		self.window_height = math.ceil(self.screen_height * resize)
 
 	def set_window_start(self):
 		'''Set a random positon and direction'''
@@ -119,5 +123,6 @@ def main():
 				event_type, event_data = event.split('>>', 1)
 				event_data = event_data.split(',')
 				if event_type == 'openwindow' and event_data[3] == 'DVD':
+					print(event_data)
 					process = Process(target=hyprdvd, args=(event_data,))
 					process.start()
