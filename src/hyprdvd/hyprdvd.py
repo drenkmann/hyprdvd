@@ -81,6 +81,9 @@ class hyprdvd():
 				transform = monitor['transform'] in [1, 3, 5, 7]
 				self.screen_width = monitor['width'] if not transform else monitor['height']
 				self.screen_height = monitor['height'] if not transform else monitor['width']
+				# TODO: set correct screen size for side monitors
+				# self.screen_x = monitor['x']
+				# self.screen_y = monitor['y']
 				break
 
 	def get_window_position(self):
@@ -123,6 +126,5 @@ def main():
 				event_type, event_data = event.split('>>', 1)
 				event_data = event_data.split(',')
 				if event_type == 'openwindow' and event_data[3] == 'DVD':
-					print(event_data)
 					process = Process(target=hyprdvd, args=(event_data,))
 					process.start()
