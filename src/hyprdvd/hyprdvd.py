@@ -31,7 +31,7 @@ class hyprdvd():
 	def loop(self):
 		'''Main loop'''
 		while True:
-			if not self.get_window_position():
+			if not self.get_window_position_and_size():
 				break
 			self.handle_animation()
 
@@ -86,7 +86,7 @@ class hyprdvd():
 				# self.screen_y = monitor['y']
 				break
 
-	def get_window_position(self):
+	def get_window_position_and_size(self):
 		'''Get the window position'''
 		clients = json.loads(hyprctl(['clients', '-j']).stdout)
 		workspace_windows = [c for c in clients if c['workspace']['id'] == self.workspace_id]
@@ -96,6 +96,7 @@ class hyprdvd():
 			return False
 
 		self.window_x, self.window_y = window['at']
+		self.window_width, self.window_height = window['size'] # If window get resized
 		return True
 
 	def get_animation_option(self):
