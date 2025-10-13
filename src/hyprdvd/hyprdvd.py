@@ -7,7 +7,7 @@ from .settings import SOCKET_PATH
 from .utils import hyprctl
 
 class HyprDVD:
-	"""Class for a single bouncing window."""
+	'''Class for a single bouncing window.'''
 	def __init__(self, event_data, manager):
 		self.address = f'0x{event_data[0]}'
 		self.workspace_id = int(event_data[1])
@@ -24,13 +24,13 @@ class HyprDVD:
 		self.set_window_start()
 
 	def set_window_size(self):
-		"""Set the size of the window relative to the screen size"""
+		'''Set the size of the window relative to the screen size'''
 		resize = 0.4
 		self.window_width = math.ceil(self.screen_width * resize)
 		self.window_height = math.ceil(self.screen_height * resize)
 
 	def set_window_start(self):
-		"""Set a random direction"""
+		'''Set a random direction'''
 		if random.randrange(1, 100) % 2 == 0:
 			self.velocity_x *= -1
 		if random.randrange(101, 200) % 2 == 0:
@@ -41,7 +41,7 @@ class HyprDVD:
 				 str(self.window_width), str(self.window_height), f',address:{self.address}'])
 
 	def get_screen_size(self):
-		"""Get the screen size"""
+		'''Get the screen size'''
 		monitors_json = json.loads(hyprctl(['monitors', '-j']).stdout)
 		for monitor in monitors_json:
 			if monitor['activeWorkspace']['id'] == int(self.workspace_id):
@@ -51,7 +51,7 @@ class HyprDVD:
 				break
 
 	def get_window_position_and_size(self, clients):
-		"""Get the window position and size"""
+		'''Get the window position and size'''
 		window = next((w for w in clients if w['address'] == self.address), None)
 
 		if not window:
@@ -62,18 +62,18 @@ class HyprDVD:
 		return True
 
 	def update(self):
-		"""Update window position"""
+		'''Update window position'''
 		self.window_x += self.velocity_x
 		self.window_y += self.velocity_y
 
 class HyprDVDManager:
-	"""Manages all HyprDVD windows."""
+	'''Manages all HyprDVD windows.'''
 	def __init__(self):
 		self.windows = []
 		self.animation_enabled_workspaces = {}
 
 	def add_window(self, event_data):
-		"""Add a new window to manage"""
+		'''Add a new window to manage'''
 		window = HyprDVD(event_data, self)
 
 		attempts = 0
@@ -103,14 +103,14 @@ class HyprDVDManager:
 		hyprctl(['dispatch', 'closewindow', f'address:{window.address}'])
 
 	def cleanup_window(self, window):
-		"""Cleanup a window and restore animation if it's the last one on the workspace."""
+		'''Cleanup a window and restore animation if it's the last one on the workspace.'''
 		if window in self.windows:
 			self.windows.remove(window)
 			if not any(w.workspace_id == window.workspace_id for w in self.windows):
 				self.handle_animation(window.workspace_id, False)
 
 	def check_collisions(self):
-		"""Check for collisions between windows and with screen borders."""
+		'''Check for collisions between windows and with screen borders.'''
 		for i, window in enumerate(self.windows):
 			# Screen border collision
 			if not 0 < window.window_x < window.screen_width - window.window_width:
@@ -136,10 +136,8 @@ class HyprDVDManager:
 					else:
 						window.velocity_y, other_window.velocity_y = other_window.velocity_y, window.velocity_y
 
-
-
 	def update_windows(self):
-		"""Update all window positions and move them."""
+		'''Update all window positions and move them.'''
 		clients = json.loads(hyprctl(['clients', '-j']).stdout)
 		for window in self.windows[:]:
 			if not window.get_window_position_and_size(clients):
@@ -156,7 +154,7 @@ class HyprDVDManager:
 			hyprctl(['--batch', ';'.join(batch_command)])
 
 	def handle_animation(self, workspace_id, is_enabled):
-		"""Handle animations for the workspace."""
+		'''Handle animations for the workspace.'''
 		if is_enabled:
 			if workspace_id not in self.animation_enabled_workspaces:
 				self.animation_enabled_workspaces[workspace_id] = hyprctl(['getoption', 'animations:enabled']).stdout.split()[1]
@@ -166,7 +164,7 @@ class HyprDVDManager:
 				hyprctl(['keyword', 'animations:enabled', self.animation_enabled_workspaces.pop(workspace_id)])
 
 	def handle_workspace_change(self, event_data):
-		"""Handle workspace change events."""
+		'''Handle workspace change events.'''
 		workspace_id = int(event_data[0])
 		if any(w.workspace_id == workspace_id for w in self.windows):
 			self.handle_animation(workspace_id, True)
@@ -179,7 +177,7 @@ class HyprDVDManager:
 				self.handle_animation(w_id, False)
 
 	def handle_active_window_change(self, event_data):
-		"""Handle active window change events."""
+		'''Handle active window change events.'''
 		window_address = f'0x{event_data[1]}'
 		clients = json.loads(hyprctl(['clients', '-j']).stdout)
 		active_window = next((w for w in clients if w['address'] == window_address), None)
@@ -190,7 +188,7 @@ class HyprDVDManager:
 
 
 def main():
-	"""Main function of the script."""
+	'''Main function of the script.'''
 	manager = HyprDVDManager()
 
 	# Connect to Hyprland's socket and listen for events.
