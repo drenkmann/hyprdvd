@@ -1,3 +1,18 @@
+## 0.2.0 (2025-10-13)
+
+### Feat
+
+- added collision logic between the DVD term
+- window resize is now possible
+
+### Fix
+
+- animation is set to back to normal again
+
+### Perf
+
+- code optimization
+
 ## 0.1.0 (2025-10-12)
 
 ### Feat
