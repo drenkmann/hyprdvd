@@ -21,7 +21,7 @@ dependencies = []
 where = ["src"]
 
 [project.scripts]
-hyprdvd = 'hyprdvd:main'
+hyprdvd = 'hyprdvd.hyprdvd:main'
 
 [tool.commitizen]
 name = "cz_conventional_commits"
