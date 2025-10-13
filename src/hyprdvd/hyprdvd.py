@@ -49,9 +49,8 @@ class HyprDVD:
 				self.screen_height = monitor['height'] if not transform else monitor['width']
 				break
 
-	def get_window_position_and_size(self):
+	def get_window_position_and_size(self, clients):
 		"""Get the window position and size"""
-		clients = json.loads(hyprctl(['clients', '-j']).stdout)
 		window = next((w for w in clients if w['address'] == self.address), None)
 
 		if not window:
@@ -65,11 +64,6 @@ class HyprDVD:
 		"""Update window position"""
 		self.window_x += self.velocity_x
 		self.window_y += self.velocity_y
-
-	def move(self):
-		"""Move window to its new position"""
-		hyprctl(['dispatch', 'movewindowpixel', 'exact',
-				 str(self.window_x), str(self.window_y), f',address:{self.address}'])
 
 class HyprDVDManager:
 	"""Manages all HyprDVD windows."""
@@ -97,7 +91,7 @@ class HyprDVDManager:
 					break
 			if not overlapping:
 				hyprctl(['dispatch', 'movewindowpixel', 'exact',
-						 str(random_x), str(random_y), f',address:{window.address}'])
+							 str(random_x), str(random_y), f',address:{window.address}'])
 				self.windows.append(window)
 				self.handle_animation(window.workspace_id, True)
 				return
@@ -138,8 +132,9 @@ class HyprDVDManager:
 
 	def update_windows(self):
 		"""Update all window positions and move them."""
+		clients = json.loads(hyprctl(['clients', '-j']).stdout)
 		for window in self.windows:
-			if not window.get_window_position_and_size():
+			if not window.get_window_position_and_size(clients):
 				self.windows.remove(window)
 				self.handle_animation(window.workspace_id, False)
 				continue
@@ -147,8 +142,11 @@ class HyprDVDManager:
 
 		self.check_collisions()
 
+		batch_command = []
 		for window in self.windows:
-			window.move()
+			batch_command.append(f'dispatch movewindowpixel exact {window.window_x} {window.window_y},address:{window.address}')
+		if batch_command:
+			hyprctl(['--batch', ';'.join(batch_command)])
 
 	def handle_animation(self, workspace_id, is_enabled):
 		"""Handle animations for the workspace."""
