@@ -1,6 +1,6 @@
 # HyprDVD
 
-A tiny utility that makes windows titled "DVD" float and bounce around like the classic DVD logo — now with a screensaver mode that temporarily animates all windows on the current workspace and restores them when the cursor moves.
+A tiny utility for hyprland that makes windows titled "DVD" float and bounce around like the classic DVD logo — now with a screensaver mode that temporarily animates all windows on the current workspace and restores them when the cursor moves.
 
 ## Highlights
 
