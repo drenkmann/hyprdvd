@@ -7,3 +7,5 @@ XDG_CONF_DIR = os.getenv('XDG_CONFIG_HOME', os.path.join(HOME, '.config'))
 
 SOCKET_PATH = f"{os.environ['XDG_RUNTIME_DIR']}/hypr/{os.environ['HYPRLAND_INSTANCE_SIGNATURE']}/.socket2.sock"
 CONF_DIR = os.path.join(XDG_CONF_DIR, 'hyprdvd')
+
+RESIZE = 0.4

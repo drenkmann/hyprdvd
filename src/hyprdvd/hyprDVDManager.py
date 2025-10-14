@@ -1,70 +1,7 @@
-from socket import socket, AF_UNIX, SOCK_STREAM
 import json
 import random
-import math
-import time
-from .settings import SOCKET_PATH
 from .utils import hyprctl
-
-class HyprDVD:
-	'''Class for a single bouncing window.'''
-	def __init__(self, event_data, manager):
-		self.address = f'0x{event_data[0]}'
-		self.workspace_id = int(event_data[1])
-		self.manager = manager
-
-		self.get_screen_size()
-		self.border_size = int(hyprctl(['getoption', 'general:border_size']).stdout.split()[1])
-
-		self.set_window_size()
-
-		self.velocity_x = 2
-		self.velocity_y = 2
-
-		self.set_window_start()
-
-	def set_window_size(self):
-		'''Set the size of the window relative to the screen size'''
-		resize = 0.4
-		self.window_width = math.ceil(self.screen_width * resize)
-		self.window_height = math.ceil(self.screen_height * resize)
-
-	def set_window_start(self):
-		'''Set a random direction'''
-		if random.randrange(1, 100) % 2 == 0:
-			self.velocity_x *= -1
-		if random.randrange(101, 200) % 2 == 0:
-			self.velocity_y *= -1
-
-		hyprctl(['dispatch', 'setfloating', f'address:{self.address}'])
-		hyprctl(['dispatch', 'resizewindowpixel', 'exact',
-				 str(self.window_width), str(self.window_height), f',address:{self.address}'])
-
-	def get_screen_size(self):
-		'''Get the screen size'''
-		monitors_json = json.loads(hyprctl(['monitors', '-j']).stdout)
-		for monitor in monitors_json:
-			if monitor['activeWorkspace']['id'] == int(self.workspace_id):
-				transform = monitor['transform'] in [1, 3, 5, 7]
-				self.screen_width = monitor['width'] if not transform else monitor['height']
-				self.screen_height = monitor['height'] if not transform else monitor['width']
-				break
-
-	def get_window_position_and_size(self, clients):
-		'''Get the window position and size'''
-		window = next((w for w in clients if w['address'] == self.address), None)
-
-		if not window:
-			return False
-
-		self.window_x, self.window_y = window['at']
-		self.window_width, self.window_height = window['size']
-		return True
-
-	def update(self):
-		'''Update window position'''
-		self.window_x += self.velocity_x
-		self.window_y += self.velocity_y
+from .hyprDVD import HyprDVD
 
 class HyprDVDManager:
 	'''Manages all HyprDVD windows.'''
@@ -185,37 +122,3 @@ class HyprDVDManager:
 			workspace_id = active_window['workspace']['id']
 			if not any(w.address == window_address for w in self.windows):
 				self.handle_animation(workspace_id, False)
-
-
-def main():
-	'''Main function of the script.'''
-	manager = HyprDVDManager()
-
-	# Connect to Hyprland's socket and listen for events.
-	with socket(AF_UNIX, SOCK_STREAM) as sock:
-		sock.connect(SOCKET_PATH)
-		sock.setblocking(False)
-
-		while True:
-			try:
-				event = sock.recv(4096).decode().strip()
-				if event:
-					for line in event.split('\n'):
-						event_type, event_data = line.split('>>', 1)
-						event_data = event_data.split(',')
-						if event_type == 'openwindow' and len(event_data) > 3 and event_data[3] == 'DVD':
-							manager.add_window(event_data)
-						elif event_type == 'workspace':
-							manager.handle_workspace_change(event_data)
-						elif event_type == 'activewindow':
-							manager.handle_active_window_change(event_data)
-			except BlockingIOError:
-				pass
-
-			if manager.windows:
-				manager.update_windows()
-
-			time.sleep(0.01) # Control the loop speed
-
-if __name__ == "__main__":
-	main()

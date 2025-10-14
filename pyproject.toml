@@ -12,7 +12,9 @@ description = 'Bouncy DVD-like terminal'
 readme = 'README.md'
 license = { file = 'LICENSE' }
 requires-python = '>=3.7'
-dependencies = []
+dependencies = [
+	'argparse'
+]
 
 [project.urls]
 'Homepage' = 'https://github.com/nevimmu/'
@@ -21,7 +23,7 @@ dependencies = []
 where = ["src"]
 
 [project.scripts]
-hyprdvd = 'hyprdvd.hyprdvd:main'
+hyprdvd = 'hyprdvd:main'
 
 [tool.commitizen]
 name = "cz_conventional_commits"

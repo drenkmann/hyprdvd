@@ -1,1 +1,1 @@
-from .hyprdvd import main
+from .main import main
