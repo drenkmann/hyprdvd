@@ -1,14 +1,23 @@
 from socket import socket, AF_UNIX, SOCK_STREAM
 import time
 import argparse
-from .settings import SOCKET_PATH
+
+from .settings import SOCKET_PATH, __version__
 from .screensaver import run_screensaver
 from .hyprDVDManager import HyprDVDManager
 
 def main():
 	'''Main function of the script.'''
-	parser = argparse.ArgumentParser(prog='hyprdvd')
-	parser.add_argument('--screensaver', '-s', action='store_true', help='Run in screensaver mode: take current workspace windows and animate them until the cursor moves')
+	parser = argparse.ArgumentParser(
+		prog='hyprdvd', 
+		description='HyprDVD: Bouncing windows for Hyprland', 
+		epilog='Run without arguments and open a window with title "DVD" to see it bounce!'
+	)
+
+	parser.add_argument('-s', '--screensaver', 
+		action='store_true', 
+		help='Run in screensaver mode: take current workspace windows and animate them until the cursor moves')
+	parser.add_argument('-v', '--version', action='version', version=f'HyprDVD v{__version__}')
 	args = parser.parse_args()
 
 	manager = HyprDVDManager()

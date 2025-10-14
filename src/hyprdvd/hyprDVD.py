@@ -15,12 +15,6 @@ class HyprDVD:
 		self.requested_size = size
 
 		self.get_screen_size()
-		# border_size may be used later for more accurate bounds; keep fetching for now
-		try:
-			self.border_size = int(hyprctl(['getoption', 'general:border_size']).stdout.split()[1])
-		except Exception:
-			self.border_size = 0
-
 		self.set_window_size()
 
 		self.velocity_x = 2
