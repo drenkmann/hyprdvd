@@ -11,8 +11,12 @@ A tiny utility for hyprland that makes windows titled "DVD" float and bounce aro
 
 ## Installation
 
-Clone and install locally (pipx or pip):
+### From the AUR
+```bash
+yay -S hyprdvd
+```
 
+### From source
 ```bash
 git clone https://github.com/nevimmu/hyprdvd
 cd hyprdvd
