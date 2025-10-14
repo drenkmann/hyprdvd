@@ -1,3 +1,13 @@
+## 0.3.0 (2025-10-15)
+
+### Feat
+
+- added screensaver mode
+
+### Refactor
+
+- code cleanup
+
 ## 0.2.0 (2025-10-13)
 
 ### Feat
