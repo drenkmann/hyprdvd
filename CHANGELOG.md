@@ -1,3 +1,9 @@
+## 0.4.0 (2025-10-15)
+
+### Feat
+
+- added a new argument to define a window size
+
 ## 0.3.0 (2025-10-15)
 
 ### Feat
