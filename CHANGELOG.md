@@ -1,3 +1,13 @@
+## 0.4.1 (2025-10-15)
+
+### Feat
+
+- screensaver starting position are more random, less "in sync"
+
+### Fix
+
+- fix windows getting stuck together
+
 ## 0.4.0 (2025-10-15)
 
 ### Feat
