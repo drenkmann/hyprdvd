@@ -17,6 +17,11 @@ class HyprDVD:
 		self.get_screen_size()
 		self.set_window_size()
 
+		# Initialize position (will be set by manager)
+		self.window_x = 0
+		self.window_y = 0
+		self.position_synced = False  # Track if we've synced with Hyprland
+
 		self.velocity_x = 2
 		self.velocity_y = 2
 
@@ -34,6 +39,7 @@ class HyprDVD:
 		try:
 			instance.window_x, instance.window_y = client['at']
 			instance.window_width, instance.window_height = client['size']
+			instance.position_synced = True  # Position is already from Hyprland
 		except Exception:
 			# If client data doesn't have expected fields, leave defaults
 			pass

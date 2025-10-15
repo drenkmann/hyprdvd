@@ -29,6 +29,9 @@ class HyprDVDManager:
 					overlapping = True
 					break
 			if not overlapping:
+				# Set the window's internal position before appending
+				window.window_x = random_x
+				window.window_y = random_y
 				hyprctl(['dispatch', 'movewindowpixel', 'exact',
 							 str(random_x), str(random_y), f',address:{window.address}'])
 				self.windows.append(window)
@@ -50,11 +53,28 @@ class HyprDVDManager:
 	def check_collisions(self):
 		'''Check for collisions between windows and with screen borders.'''
 		for i, window in enumerate(self.windows):
-			# Screen border collision
-			if not 0 < window.window_x < window.screen_width - window.window_width:
-				window.velocity_x *= -1
-			if not 0 < window.window_y < window.screen_height - window.window_height:
-				window.velocity_y *= -1
+			# Screen border collision with position correction
+			# Left border
+			if window.window_x <= 0:
+				window.window_x = 0
+				if window.velocity_x < 0:
+					window.velocity_x *= -1
+			# Right border
+			elif window.window_x >= window.screen_width - window.window_width:
+				window.window_x = window.screen_width - window.window_width
+				if window.velocity_x > 0:
+					window.velocity_x *= -1
+			
+			# Top border
+			if window.window_y <= 0:
+				window.window_y = 0
+				if window.velocity_y < 0:
+					window.velocity_y *= -1
+			# Bottom border
+			elif window.window_y >= window.screen_height - window.window_height:
+				window.window_y = window.screen_height - window.window_height
+				if window.velocity_y > 0:
+					window.velocity_y *= -1
 
 			# Other window collision
 			for other_window in self.windows[i+1:]:
@@ -65,29 +85,79 @@ class HyprDVDManager:
 					window.window_y < other_window.window_y + other_window.window_height and
 					window.window_y + window.window_height > other_window.window_y
 				):
-
+					# Calculate overlap amounts
 					overlap_x = min(window.window_x + window.window_width, other_window.window_x + other_window.window_width) - max(window.window_x, other_window.window_x)
 					overlap_y = min(window.window_y + window.window_height, other_window.window_y + other_window.window_height) - max(window.window_y, other_window.window_y)
 
+					# Separate windows based on smaller overlap
 					if overlap_x < overlap_y:
-						window.velocity_x, other_window.velocity_x = other_window.velocity_x, window.velocity_x
+						# Horizontal collision - separate horizontally
+						if window.window_x < other_window.window_x:
+							# window is on the left
+							separation = overlap_x / 2
+							window.window_x -= separation
+							other_window.window_x += separation
+						else:
+							# window is on the right
+							separation = overlap_x / 2
+							window.window_x += separation
+							other_window.window_x -= separation
+						
+						# Swap horizontal velocities only if they're moving towards each other
+						if (window.velocity_x > 0 and other_window.velocity_x < 0) or \
+						   (window.velocity_x < 0 and other_window.velocity_x > 0):
+							window.velocity_x, other_window.velocity_x = other_window.velocity_x, window.velocity_x
 					else:
-						window.velocity_y, other_window.velocity_y = other_window.velocity_y, window.velocity_y
+						# Vertical collision - separate vertically
+						if window.window_y < other_window.window_y:
+							# window is above
+							separation = overlap_y / 2
+							window.window_y -= separation
+							other_window.window_y += separation
+						else:
+							# window is below
+							separation = overlap_y / 2
+							window.window_y += separation
+							other_window.window_y -= separation
+						
+						# Swap vertical velocities only if they're moving towards each other
+						if (window.velocity_y > 0 and other_window.velocity_y < 0) or \
+						   (window.velocity_y < 0 and other_window.velocity_y > 0):
+							window.velocity_y, other_window.velocity_y = other_window.velocity_y, window.velocity_y
 
 	def update_windows(self):
 		'''Update all window positions and move them.'''
 		clients = json.loads(hyprctl(['clients', '-j']).stdout)
+		
+		# Check which windows still exist
 		for window in self.windows[:]:
-			if not window.get_window_position_and_size(clients):
+			client = next((w for w in clients if w['address'] == window.address), None)
+			if not client:
 				self.cleanup_window(window)
 				continue
+			
+			# Update size from Hyprland (can change if user resizes)
+			window.window_width, window.window_height = client['size']
+			
+			# On first update, sync position with Hyprland to get actual position
+			# After that, we manage position ourselves to avoid position conflicts
+			if not window.position_synced:
+				window.window_x, window.window_y = client['at']
+				window.position_synced = True
+		
+		# Update positions based on velocity
+		for window in self.windows:
 			window.update()
 
+		# Check and correct collisions
 		self.check_collisions()
 
+		# Send corrected positions to Hyprland (convert to int)
 		batch_command = []
 		for window in self.windows:
-			batch_command.append(f'dispatch movewindowpixel exact {window.window_x} {window.window_y},address:{window.address}')
+			x = int(round(window.window_x))
+			y = int(round(window.window_y))
+			batch_command.append(f'dispatch movewindowpixel exact {x} {y},address:{window.address}')
 		if batch_command:
 			hyprctl(['--batch', ';'.join(batch_command)])
 

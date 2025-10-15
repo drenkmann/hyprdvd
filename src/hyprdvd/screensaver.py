@@ -1,6 +1,7 @@
 import time
 import json
 import math
+import random
 
 from hyprdvd.settings import RESIZE
 from .utils import hyprctl
@@ -100,7 +101,33 @@ def run_screensaver(manager, poll_interval=0.02):
 			continue
 		comp = computed.get(addr, {})
 		anim_size = comp.get('size', c.get('size'))
-		anim_at = comp.get('at', c.get('at'))
+		# Add some randomness to the position so windows don't align perfectly
+		base_at = comp.get('at', c.get('at'))
+		if base_at:
+			# Use a unique random generator per window to avoid same offsets
+			rng = random.Random(str(addr))
+			cell_w = max(1, cell_w)
+			cell_h = max(1, cell_h)
+			w, h = anim_size
+			max_dx = int(cell_w * 0.1)
+			max_dy = int(cell_h * 0.1)
+			retries = 0
+			while True:
+				dx = rng.randint(-max_dx, max_dx)
+				dy = rng.randint(-max_dy, max_dy)
+				x = base_at[0] + dx
+				y = base_at[1] + dy
+				# Ensure window is fully on screen
+				if 0 <= x <= screen_width - w and 0 <= y <= screen_height - h:
+					anim_at = [x, y]
+					break
+				retries += 1
+				if retries > 100:
+					# fallback to clamped position if too many retries
+					x = min(max(0, x), screen_width - w)
+					y = min(max(0, y), screen_height - h)
+					anim_at = [x, y]
+					break
 
 		# save minimal state including original client values so we can restore them
 		saved_windows.append({
