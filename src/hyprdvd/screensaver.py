@@ -10,7 +10,7 @@ def run_screensaver(manager, poll_interval=0.02):
 	'''Run the screensaver: save cursor and current workspace windows, float and animate them until cursor moves.
 
 	This function makes a few reasonable assumptions about available hyprctl commands:
-	- `hyprctl(['cursorpos'])` returns cursor coordinates as: "<x> <y>\n" or similar.
+	- `hyprctl(['cursorpos'])` returns cursor coordinates as: "<x> <y>" or similar.
 	- `clients -j` returns a list of client dicts with keys: 'address', 'at', 'size', 'workspace', 'focused'.
 
 	If those commands differ on your system we can adapt parsing accordingly.

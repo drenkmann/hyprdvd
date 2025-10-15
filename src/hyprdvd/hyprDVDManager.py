@@ -5,13 +5,14 @@ from .hyprDVD import HyprDVD
 
 class HyprDVDManager:
 	'''Manages all HyprDVD windows.'''
-	def __init__(self):
+	def __init__(self, size=None):
 		self.windows = []
 		self.animation_enabled_workspaces = {}
+		self.window_size = size
 
 	def add_window(self, event_data):
 		'''Add a new window to manage'''
-		window = HyprDVD(event_data, self)
+		window = HyprDVD(event_data, self, size=self.window_size)
 
 		attempts = 0
 		while attempts < 100:

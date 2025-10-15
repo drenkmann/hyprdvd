@@ -16,11 +16,26 @@ def main():
 
 	parser.add_argument('-s', '--screensaver', 
 		action='store_true', 
-		help='Run in screensaver mode: take current workspace windows and animate them until the cursor moves')
+		help='Run in screensaver mode: take current workspace windows and animate them until the cursor moves'
+	)
+	parser.add_argument('--size', 
+		action='store', 
+		help='Set the size of the bouncing windows (WIDTHxHEIGHT)'
+	)
 	parser.add_argument('-v', '--version', action='version', version=f'HyprDVD v{__version__}')
 	args = parser.parse_args()
 
-	manager = HyprDVDManager()
+	# Parse the size argument (format: WIDTHxHEIGHT)
+	size = None
+	if args.size:
+		try:
+			width, height = args.size.split('x')
+			size = (int(width), int(height))
+		except ValueError:
+			print(f'Error: Invalid size format {args.size}. Use WIDTHxHEIGHT format (e.g., 100x100)')
+			return
+
+	manager = HyprDVDManager(size=size)
 
 	if args.screensaver:
 		run_screensaver(manager)
