@@ -41,3 +41,10 @@ hyprdvd --screensaver
 # or
 hyprdvd -s
 ```
+
+You can customize the size of bouncing windows using the `--size` flag with the width and height you want
+
+```bash
+# Make windows 200x150 pixels
+hyprdvd --size 200x150
+```
