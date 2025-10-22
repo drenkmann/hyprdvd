@@ -76,11 +76,16 @@ def run_screensaver(manager, poll_interval=0.02, size=None):
 				screen_width = int(monitor['width'] / monitor['scale']) if not transform else int(monitor['height'] / monitor['scale'])
 				screen_height = int(monitor['height'] / monitor['scale']) if not transform else int(monitor['width'] / monitor['scale'])
 
-		cols = max(1, math.ceil(math.sqrt(N * (screen_width / screen_height)))) if screen_height > 0 else max(1, math.ceil(math.sqrt(N)))
-		rows = math.ceil(N / cols)
+		# If screen size could not be found, fall back to 1920x1080
+		if screen_width is None or screen_height is None:
+			screen_width = screen_width or 1920
+			screen_height = screen_height or 1080
 
-		cell_w = screen_width / cols
-		cell_h = screen_height / rows
+		cols = max(1, math.ceil(math.sqrt(N * (screen_width / screen_height)))) if screen_height > 0 else max(1, math.ceil(math.sqrt(N)))
+		rows = max(1, math.ceil(N / cols))
+
+		cell_w = max(1, int(screen_width / cols))
+		cell_h = max(1, int(screen_height / rows))
 
 		max_w = min(int(screen_width * RESIZE), int(cell_w * 0.9))
 		max_h = min(int(screen_height * RESIZE), int(cell_h * 0.9))
@@ -95,6 +100,7 @@ def run_screensaver(manager, poll_interval=0.02, size=None):
 			computed[c.get('address')] = {'size': [w, h], 'at': [x, y]}
 
 	# assign computed sizes/positions when making windows floating
+	placed_rects = []  # track placed rects to prevent overlaps after jitter: [x, y, w, h]
 	for c in clients_in_ws:
 		addr = c.get('address')
 		if not addr:
@@ -112,8 +118,9 @@ def run_screensaver(manager, poll_interval=0.02, size=None):
 			cell_w = max(1, cell_w)
 			cell_h = max(1, cell_h)
 			w, h = anim_size
-			max_dx = int(cell_w * 0.1)
-			max_dy = int(cell_h * 0.1)
+			# Keep max offset within the free margin of the cell to avoid crossing cells
+			max_dx = max(0, int((cell_w - w) / 2))
+			max_dy = max(0, int((cell_h - h) / 2))
 			retries = 0
 			while True:
 				dx = rng.randint(-max_dx, max_dx)
@@ -121,15 +128,29 @@ def run_screensaver(manager, poll_interval=0.02, size=None):
 				x = base_at[0] + dx
 				y = base_at[1] + dy
 				# Ensure window is fully on screen
-				if 0 <= x <= screen_width - w and 0 <= y <= screen_height - h:
+				if not (0 <= x <= screen_width - w and 0 <= y <= screen_height - h):
+					retries += 1
+					if retries > 50:
+						# fallback to clamped position if too many retries
+						x = min(max(0, x), screen_width - w)
+						y = min(max(0, y), screen_height - h)
+						anim_at = [x, y]
+						break
+					continue
+
+				# Check against already placed rects to avoid overlaps
+				overlap = False
+				for rx, ry, rw, rh in placed_rects:
+					if not (x + w <= rx or rx + rw <= x or y + h <= ry or ry + rh <= y):
+						overlap = True
+						break
+				if not overlap:
 					anim_at = [x, y]
 					break
 				retries += 1
-				if retries > 100:
-					# fallback to clamped position if too many retries
-					x = min(max(0, x), screen_width - w)
-					y = min(max(0, y), screen_height - h)
-					anim_at = [x, y]
+				if retries > 50:
+					# give up on jitter and use base position instead
+					anim_at = [base_at[0], base_at[1]]
 					break
 
 		# save minimal state including original client values so we can restore them
@@ -146,11 +167,24 @@ def run_screensaver(manager, poll_interval=0.02, size=None):
 		hyprctl(['dispatch', 'setfloating', f'address:{addr}'])
 		if anim_size:
 			hyprctl(['dispatch', 'resizewindowpixel', 'exact', str(anim_size[0]), str(anim_size[1]), f',address:{addr}'])
+		# Ensure we have a valid anim_at even if base_at wasn't available
+		if not base_at:
+			# fallback to client position or origin
+			anim_at = list(c.get('at') or [0, 0])
+			# clamp to screen
+			try:
+				w, h = anim_size
+				anim_at[0] = min(max(0, int(anim_at[0])), max(0, screen_width - w))
+				anim_at[1] = min(max(0, int(anim_at[1])), max(0, screen_height - h))
+			except Exception:
+				pass
 		if anim_at:
 			hyprctl(['dispatch', 'movewindowpixel', 'exact', str(anim_at[0]), str(anim_at[1]), f',address:{addr}'])
+			# remember rect to avoid overlaps for next windows
+			placed_rects.append((anim_at[0], anim_at[1], anim_size[0], anim_size[1]))
 
-		# Add to manager so it will be animated, pass pixel size to HyprDVD
-		manager.windows.append(HyprDVD.from_client(c, manager, size=anim_size))
+		# Add to manager so it will be animated, pass pixel size and initial position to HyprDVD
+		manager.windows.append(HyprDVD.from_client(c, manager, size=anim_size, at=anim_at))
 
 	if not manager.windows:
 		print('No windows found in current workspace to animate')
@@ -221,5 +255,6 @@ def run_screensaver(manager, poll_interval=0.02, size=None):
 				hyprctl(['--batch', ';'.join(batch_cmds)])
 
 		print('Restored windows. Screensaver finished.')
-		# set the cuttle cursor to the saved position
-		hyprctl(['dispatch', 'movecursor', str(saved_cursor[0]), str(saved_cursor[1])])
+		# set the cursor back to the saved position if available
+		if saved_cursor is not None:
+			hyprctl(['dispatch', 'movecursor', str(saved_cursor[0]), str(saved_cursor[1])])
