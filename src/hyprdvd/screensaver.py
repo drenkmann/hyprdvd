@@ -7,7 +7,7 @@ from hyprdvd.settings import RESIZE
 from .utils import hyprctl
 from .hyprDVD import HyprDVD
 
-def run_screensaver(manager, poll_interval=0.02):
+def run_screensaver(manager, poll_interval=0.02, size=None):
 	'''Run the screensaver: save cursor and current workspace windows, float and animate them until cursor moves.
 
 	This function makes a few reasonable assumptions about available hyprctl commands:
@@ -100,7 +100,10 @@ def run_screensaver(manager, poll_interval=0.02):
 		if not addr:
 			continue
 		comp = computed.get(addr, {})
-		anim_size = comp.get('size', c.get('size'))
+		if size:
+			anim_size = size
+		else:
+			anim_size = comp.get('size', c.get('size'))
 		# Add some randomness to the position so windows don't align perfectly
 		base_at = comp.get('at', c.get('at'))
 		if base_at:
