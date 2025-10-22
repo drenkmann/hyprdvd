@@ -66,15 +66,15 @@ def run_screensaver(manager, poll_interval=0.02):
 		for monitor in monitors:
 			if monitor['activeWorkspace']['id'] == int(workspace_id):
 				transform = monitor['transform'] in [1, 3, 5, 7]
-				screen_width = monitor['width'] if not transform else monitor['height']
-				screen_height = monitor['height'] if not transform else monitor['width']
+				screen_width = int(monitor['width'] / monitor['scale']) if not transform else int(monitor['height'] / monitor['scale'])
+				screen_height = int(monitor['height'] / monitor['scale']) if not transform else int(monitor['width'] / monitor['scale'])
 				break
 		if screen_width is None or screen_height is None:
 			if monitors:
 				monitor = monitors[0]
 				transform = monitor['transform'] in [1, 3, 5, 7]
-				screen_width = monitor['width'] if not transform else monitor['height']
-				screen_height = monitor['height'] if not transform else monitor['width']
+				screen_width = int(monitor['width'] / monitor['scale']) if not transform else int(monitor['height'] / monitor['scale'])
+				screen_height = int(monitor['height'] / monitor['scale']) if not transform else int(monitor['width'] / monitor['scale'])
 
 		cols = max(1, math.ceil(math.sqrt(N * (screen_width / screen_height)))) if screen_height > 0 else max(1, math.ceil(math.sqrt(N)))
 		rows = math.ceil(N / cols)
