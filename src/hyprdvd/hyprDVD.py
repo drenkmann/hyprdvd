@@ -84,8 +84,8 @@ class HyprDVD:
 		for monitor in monitors_json:
 			if monitor['activeWorkspace']['id'] == int(self.workspace_id):
 				transform = monitor['transform'] in [1, 3, 5, 7]
-				self.screen_width = monitor['width'] if not transform else monitor['height']
-				self.screen_height = monitor['height'] if not transform else monitor['width']
+				self.screen_width = int(monitor['width'] / monitor['scale']) if not transform else int(monitor['height'] / monitor['scale'])
+				self.screen_height = int(monitor['height'] / monitor['scale']) if not transform else int(monitor['width'] / monitor['scale'])
 				break
 
 	def get_window_position_and_size(self, clients):
