@@ -106,10 +106,12 @@ def run_screensaver(manager, poll_interval=0.02, size=None):
 		if not addr:
 			continue
 		comp = computed.get(addr, {})
+		anim_size = comp.get('size', c.get('size'))
+
 		if size:
-			anim_size = size
-		else:
-			anim_size = comp.get('size', c.get('size'))
+			anim_size[0] = min(anim_size[0], size[0])
+			anim_size[1] = min(anim_size[1], size[1])
+
 		# Add some randomness to the position so windows don't align perfectly
 		base_at = comp.get('at', c.get('at'))
 		if base_at:
