@@ -6,4 +6,5 @@ def hyprctl(cmd):
 		['hyprctl'] + cmd, 
 		capture_output = True,
 		text = True,
+		errors = "ignore",
 	)
