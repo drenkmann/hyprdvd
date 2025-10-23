@@ -28,14 +28,30 @@ class HyprDVD:
 		self.set_window_start()
 
 	@classmethod
-	def from_client(cls, client, manager, size=None):
-		'''Create a HyprDVD instance from a hyprctl client dict.'''
+	def from_client(cls, client, manager, size=None, at=None):
+		'''Create a HyprDVD instance from a hyprctl client dict.
+
+		Optional args:
+		- size: tuple[int|float, int|float] -> forwarded to constructor (ratio or pixels)
+		- at: tuple[int, int] -> initial position to sync with (e.g., when caller already moved window)
+		'''
 		addr = client.get('address', '')
 		addr_stripped = addr.replace('0x', '') if addr.startswith('0x') else addr
 		ev = [addr_stripped, str(client['workspace']['id'])]
 		instance = cls(ev, manager, size=size)
-		# override position/size with actual client values so the screensaver
-		# starts from the original locations
+		# If caller provides an explicit position (e.g., after moving the window), trust it.
+		if at is not None and len(at) == 2:
+			try:
+				instance.window_x, instance.window_y = int(at[0]), int(at[1])
+				# Size is already set in constructor based on requested size; do not force from client here.
+				instance.position_synced = True
+				return instance
+			except Exception:
+				# Fall back to client-provided values if casting fails
+				pass
+
+		# Otherwise, override with actual client values so the animation
+		# starts from the Hyprland-reported location/size.
 		try:
 			instance.window_x, instance.window_y = client['at']
 			instance.window_width, instance.window_height = client['size']
@@ -84,8 +100,8 @@ class HyprDVD:
 		for monitor in monitors_json:
 			if monitor['activeWorkspace']['id'] == int(self.workspace_id):
 				transform = monitor['transform'] in [1, 3, 5, 7]
-				self.screen_width = monitor['width'] if not transform else monitor['height']
-				self.screen_height = monitor['height'] if not transform else monitor['width']
+				self.screen_width = int(monitor['width'] / monitor['scale']) if not transform else int(monitor['height'] / monitor['scale'])
+				self.screen_height = int(monitor['height'] / monitor['scale']) if not transform else int(monitor['width'] / monitor['scale'])
 				break
 
 	def get_window_position_and_size(self, clients):

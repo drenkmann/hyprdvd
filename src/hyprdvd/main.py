@@ -9,17 +9,17 @@ from .hyprDVDManager import HyprDVDManager
 def main():
 	'''Main function of the script.'''
 	parser = argparse.ArgumentParser(
-		prog='hyprdvd', 
-		description='HyprDVD: Bouncing windows for Hyprland', 
+		prog='hyprdvd',
+		description='HyprDVD: Bouncing windows for Hyprland',
 		epilog='Run without arguments and open a window with title "DVD" to see it bounce!'
 	)
 
-	parser.add_argument('-s', '--screensaver', 
-		action='store_true', 
+	parser.add_argument('-s', '--screensaver',
+		action='store_true',
 		help='Run in screensaver mode: take current workspace windows and animate them until the cursor moves'
 	)
-	parser.add_argument('--size', 
-		action='store', 
+	parser.add_argument('--size',
+		action='store',
 		help='Set the size of the bouncing windows (WIDTHxHEIGHT)'
 	)
 	parser.add_argument('-v', '--version', action='version', version=f'HyprDVD v{__version__}')
@@ -38,7 +38,7 @@ def main():
 	manager = HyprDVDManager(size=size)
 
 	if args.screensaver:
-		run_screensaver(manager)
+		run_screensaver(manager, size=size)
 		return
 
 	# Default behaviour: Connect to Hyprland's socket and listen for events.
