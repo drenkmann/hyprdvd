@@ -1,3 +1,13 @@
+## 0.4.2 (2025-10-24)
+
+### Fix
+
+- windows overlapping if requested size is > anim_size
+- initial overlap of windows
+- size argument in screensave mode
+- hyprland scaling in screensaver mode
+- hyprland scaling
+
 ## 0.4.1 (2025-10-15)
 
 ### Feat
