@@ -14,6 +14,12 @@ class HyprDVD:
 
 		self.requested_size = size
 
+		self.screen_width  = 1920
+		self.screen_height = 1080
+		self.offset_x = 0      # global origin X of the monitor owning this window
+		self.offset_y = 0      # global origin Y of the monitor owning this window
+
+
 		self.get_screen_size()
 		self.set_window_size()
 

@@ -142,8 +142,13 @@ class HyprDVDManager:
 			# On first update, sync position with Hyprland to get actual position
 			# After that, we manage position ourselves to avoid position conflicts
 			if not window.position_synced:
-				window.window_x, window.window_y = client['at']
+				ax, ay = client['at']                  # absolute coords from Hyprland
+				ox = getattr(window, 'offset_x', 0)    # monitor origin
+				oy = getattr(window, 'offset_y', 0)
+				window.window_x = ax - ox              # store RELATIVE position
+				window.window_y = ay - oy
 				window.position_synced = True
+
 		
 		# Update positions based on velocity
 		for window in self.windows:
@@ -157,7 +162,9 @@ class HyprDVDManager:
 		for window in self.windows:
 			x = int(round(window.window_x))
 			y = int(round(window.window_y))
-			batch_command.append(f'dispatch movewindowpixel exact {x} {y},address:{window.address}')
+			gx = int(window.window_x + getattr(window, 'offset_x', 0))
+			gy = int(window.window_y + getattr(window, 'offset_y', 0))
+			batch_command.append(f'dispatch movewindowpixel exact {gx} {gy},address:{window.address}')
 		if batch_command:
 			hyprctl(['--batch', ';'.join(batch_command)])
 

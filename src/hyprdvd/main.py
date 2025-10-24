@@ -22,6 +22,20 @@ def main():
 		action='store',
 		help='Set the size of the bouncing windows (WIDTHxHEIGHT)'
 	)
+
+	parser.add_argument('--workspaces',
+		help='comma-seperated workspace IDs',
+		type=str,
+		default=None
+	)
+
+	parser.add_argument('--exit-on',
+		choices=["pointer", "signal"],
+		default='pointer'
+	)
+
+
+
 	parser.add_argument('-v', '--version', action='version', version=f'HyprDVD v{__version__}')
 	args = parser.parse_args()
 
@@ -38,7 +52,12 @@ def main():
 	manager = HyprDVDManager(size=size)
 
 	if args.screensaver:
-		run_screensaver(manager, size=size)
+		run_screensaver(
+			manager,
+			size=size,
+			workspaces = args.workspaces,
+			exit_on=args.exit_on
+		)
 		return
 
 	# Default behaviour: Connect to Hyprland's socket and listen for events.
