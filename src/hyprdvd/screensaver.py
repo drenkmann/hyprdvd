@@ -36,18 +36,35 @@ def run_screensaver(manager, poll_interval=0.02, size=None, workspaces=None, exi
 	clients = json.loads(hyprctl(['clients', '-j']).stdout)
 
 	def _parse_ws_arg(ws_arg):
-	    return [int(x) for x in ws_arg.split(',') if x.strip()]
+		return [entry.strip() for entry in ws_arg.split(',') if entry.strip()]
+
+	def _resolve_workspace(token, workspace_list):
+		try:
+			return int(token)
+		except ValueError:
+			for ws in workspace_list:
+				if str(ws.get('id')) == token or ws.get('name') == token:
+					return ws.get('id')
+		return None
+
+	try:
+		workspaces_json = json.loads(hyprctl(['workspaces', '-j']).stdout)
+	except Exception:
+		workspaces_json = []
 
 	ws_ids = []
 	if workspaces:
-	    ws_ids = _parse_ws_arg(workspaces)
+		requested = _parse_ws_arg(workspaces)
+		for token in requested:
+			resolved = _resolve_workspace(token, workspaces_json)
+			if resolved is not None:
+				ws_ids.append(resolved)
+			else:
+				print(f'Warning: workspace "{token}" not found; ignoring')
+		ws_ids = list(dict.fromkeys(ws_ids))
 	else:
-	    # default: all visible workspaces (one per monitor)
-	    try:
-	        wss = json.loads(hyprctl(['workspaces', '-j']).stdout)
-	        ws_ids = [w['id'] for w in wss if w.get('monitor')]
-	    except Exception:
-	        ws_ids = []
+		# default: all visible workspaces (one per monitor)
+		ws_ids = [w['id'] for w in workspaces_json if w.get('monitor')]
 
 	# Fallback: active workspace only (JSON)
 	if not ws_ids:
