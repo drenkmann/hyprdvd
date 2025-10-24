@@ -99,5 +99,5 @@ def main():
 			time.sleep(0.01) # Control the loop speed
 
 
-if __name__ == "_main__":
+if __name__ == "__main__":
 	main()
