@@ -30,7 +30,7 @@ def main():
 	)
 
 	parser.add_argument('--exit-on',
-		choices=["pointer", "signal"],
+		choices=['pointer', 'signal'],
 		default='pointer'
 	)
 
@@ -64,7 +64,7 @@ def main():
 	with socket(AF_UNIX, SOCK_STREAM) as sock:
 		sock.connect(SOCKET_PATH)
 		sock.setblocking(False)
-		buffer = ""
+		buffer = ''
 
 		while True:
 			try:
@@ -99,5 +99,5 @@ def main():
 			time.sleep(0.01) # Control the loop speed
 
 
-if __name__ == "__main__":
+if __name__ == "_main__":
 	main()

@@ -6,10 +6,9 @@ import random
 from hyprdvd.settings import RESIZE
 from .utils import hyprctl
 from .hyprDVD import HyprDVD
-from .ipc import hypr_json
 
 
-def run_screensaver(manager, poll_interval=0.02, size=None, workspaces=None, exit_on="pointer"):
+def run_screensaver(manager, poll_interval=0.02, size=None, workspaces=None, exit_on='pointer'):
 	'''Run the screensaver: save cursor and current workspace windows, float and animate them until cursor moves.
 
 	This function makes a few reasonable assumptions about available hyprctl commands:
@@ -60,7 +59,7 @@ def run_screensaver(manager, poll_interval=0.02, size=None, workspaces=None, exi
 			if resolved is not None:
 				ws_ids.append(resolved)
 			else:
-				print(f'Warning: workspace "{token}" not found; ignoring')
+				print(f'Warning: workspace '{token}' not found; ignoring')
 		ws_ids = list(dict.fromkeys(ws_ids))
 	else:
 		# default: all visible workspaces (one per monitor)
@@ -68,15 +67,15 @@ def run_screensaver(manager, poll_interval=0.02, size=None, workspaces=None, exi
 
 	# Fallback: active workspace only (JSON)
 	if not ws_ids:
-	    try:
-	        aws = json.loads(hyprctl(['activeworkspace', '-j']).stdout)
-	        ws_ids = [aws['id']]
-	    except Exception:
-	        pass
+		try:
+			aws = json.loads(hyprctl(['activeworkspace', '-j']).stdout)
+			ws_ids = [aws['id']]
+		except Exception:
+			pass
 
 	if not ws_ids:
-	    print('No visible/active workspaces — aborting screensaver')
-	    return
+		print('No visible/active workspaces — aborting screensaver')
+		return
 
 	clients_in_ws = [c for c in clients if c.get('workspace', {}).get('id') in set(ws_ids)]
 	monitors = json.loads(hyprctl(['monitors', '-j']).stdout)
@@ -109,15 +108,15 @@ def run_screensaver(manager, poll_interval=0.02, size=None, workspaces=None, exi
 	monitors = json.loads(hyprctl(['monitors', '-j']).stdout)
 	ws_geom = {}
 	for m in monitors:
-	    try:
-	        wsid = m['activeWorkspace']['id']
-	        # rotated transforms: 1,3,5,7
-	        rotated = m.get('transform') in (1, 3, 5, 7)
-	        w = int(m['width']  / m['scale'])
-	        h = int(m['height'] / m['scale'])
-	        ws_geom[wsid] = (h, w) if rotated else (w, h)
-	    except Exception:
-	        pass
+		try:
+			wsid = m['activeWorkspace']['id']
+			# rotated transforms: 1,3,5,7
+			rotated = m.get('transform') in (1, 3, 5, 7)
+			w = int(m['width']  / m['scale'])
+			h = int(m['height'] / m['scale'])
+			ws_geom[wsid] = (h, w) if rotated else (w, h)
+		except Exception:
+			pass
 
 	# Map visible workspaces to their monitor global origin (x,y)
 	ws_origin = {}
@@ -138,11 +137,11 @@ def run_screensaver(manager, poll_interval=0.02, size=None, workspaces=None, exi
 	# A fallback in case a workspace isn't in ws_geom
 	fallback_w, fallback_h = (1920, 1080)
 	if monitors:
-	    m0 = monitors[0]
-	    rotated0 = m0.get('transform') in (1, 3, 5, 7)
-	    w0 = int(m0['width']  / m0['scale'])
-	    h0 = int(m0['height'] / m0['scale'])
-	    fallback_w, fallback_h = ((h0, w0) if rotated0 else (w0, h0))
+		m0 = monitors[0]
+		rotated0 = m0.get('transform') in (1, 3, 5, 7)
+		w0 = int(m0['width']  / m0['scale'])
+		h0 = int(m0['height'] / m0['scale'])
+		fallback_w, fallback_h = ((h0, w0) if rotated0 else (w0, h0))
 		
 
 
@@ -304,19 +303,19 @@ def run_screensaver(manager, poll_interval=0.02, size=None, workspaces=None, exi
 
 	# Choose exit behavior
 	stop_requested = False
-	if exit_on == "signal":
-	    import signal
-	    def _sigint(*_):
-	        nonlocal stop_requested
-	        stop_requested = True
-	    signal.signal(signal.SIGINT, _sigint)
+	if exit_on == 'signal':
+		import signal
+		def _sigint(*_):
+			nonlocal stop_requested
+			stop_requested = True
+		signal.signal(signal.SIGINT, _sigint)
 
 	# 4) Animate until cursor moves
 	try:
 		while True:
 			# check cursor movement
 			moved = False
-			if exit_on == "pointer" and saved_cursor is not None:
+			if exit_on == 'pointer' and saved_cursor is not None:
 				try:
 					out = hyprctl(['cursorpos']).stdout.strip()
 					parts = out.replace(',', ' ').split()
