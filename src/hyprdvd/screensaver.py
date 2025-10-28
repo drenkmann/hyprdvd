@@ -65,7 +65,7 @@ def run_screensaver(manager, poll_interval=0.02, size=None, workspaces=None, exi
 			if resolved is not None:
 				ws_ids.append(resolved)
 			else:
-				print(f"Warning: workspace '{token}' not found; ignoring")
+				print(f'Warning: workspace {token} not found; ignoring')
 		ws_ids = list(dict.fromkeys(ws_ids))
 	else:
 		for monitor in monitors:
