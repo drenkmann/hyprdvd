@@ -2,12 +2,14 @@ import time
 import json
 import math
 import random
+from collections import defaultdict
 
 from hyprdvd.settings import RESIZE
 from .utils import hyprctl
 from .hyprDVD import HyprDVD
 
-def run_screensaver(manager, poll_interval=0.02, size=None):
+
+def run_screensaver(manager, poll_interval=0.02, size=None, workspaces=None, exit_on='pointer'):
 	'''Run the screensaver: save cursor and current workspace windows, float and animate them until cursor moves.
 
 	This function makes a few reasonable assumptions about available hyprctl commands:
@@ -29,120 +31,228 @@ def run_screensaver(manager, poll_interval=0.02, size=None):
 		# If cursor query fails, we'll still proceed but we can't detect movement
 		saved_cursor = None
 
-	# 2) Collect current workspace clients
-	clients = json.loads(hyprctl(['clients', '-j']).stdout)
-	focused = next((c for c in clients if c.get('focused')), None)
-	if focused:
-		workspace_id = focused['workspace']['id']
-	else:
-		# fallback: ask hyprctl for the active workspace
-		try:
-			out = hyprctl(['activeworkspace']).stdout.strip()
-			# hyprctl activeworkspace output is expected to contain the id; try to parse any integers
-			parts = out.replace(',', ' ').split()
-			ints = [int(p) for p in parts if p.lstrip('-').isdigit()]
-			workspace_id = ints[0] if ints else None
-		except Exception:
-			workspace_id = None
 
-	if workspace_id is None:
-		print('Could not determine current workspace — aborting screensaver')
+	# 2) Collect target workspaces (without switching focus) and their clients
+	clients = json.loads(hyprctl(['clients', '-j']).stdout)
+
+	def _parse_ws_arg(ws_arg):
+		return [entry.strip() for entry in ws_arg.split(',') if entry.strip()]
+
+	def _resolve_workspace(token, workspace_list):
+		try:
+			return int(token)
+		except ValueError:
+			for ws in workspace_list:
+				if str(ws.get('id')) == token or ws.get('name') == token:
+					return ws.get('id')
+		return None
+
+	try:
+		workspaces_json = json.loads(hyprctl(['workspaces', '-j']).stdout)
+	except Exception:
+		workspaces_json = []
+
+	try:
+		monitors = json.loads(hyprctl(['monitors', '-j']).stdout)
+	except Exception:
+		monitors = []
+
+	ws_ids = []
+	if workspaces:
+		requested = _parse_ws_arg(workspaces)
+		for token in requested:
+			resolved = _resolve_workspace(token, workspaces_json)
+			if resolved is not None:
+				ws_ids.append(resolved)
+			else:
+				print(f'Warning: workspace {token} not found; ignoring')
+		ws_ids = list(dict.fromkeys(ws_ids))
+	else:
+		for monitor in monitors:
+			try:
+				wsid = monitor['activeWorkspace']['id']
+			except Exception:
+				continue
+			ws_ids.append(wsid)
+		ws_ids = list(dict.fromkeys(ws_ids))
+
+	# Fallback: active workspace only (JSON)
+	if not ws_ids:
+		try:
+			aws = json.loads(hyprctl(['activeworkspace', '-j']).stdout)
+			ws_ids = [aws['id']]
+		except Exception:
+			pass
+
+	if not ws_ids:
+		print('No visible/active workspaces — aborting screensaver')
 		return
 
-	clients_in_ws = [c for c in clients if c.get('workspace', {}).get('id') == workspace_id]
+	target_ws_ids = set(ws_ids)
+	clients_by_ws = {wsid: [] for wsid in ws_ids}
+	for client in clients:
+		wsid = client.get('workspace', {}).get('id')
+		if wsid in target_ws_ids:
+			clients_by_ws[wsid].append(client)
+
+	clients_in_ws = [client for wsid in ws_ids for client in clients_by_ws.get(wsid, [])]
+
+	ws_geom = {}    # ws_id -> (screen_w, screen_h) in pixels, rotation-aware, scale-compensated
+	ws_origin = {}  # ws_id -> (origin_x, origin_y) in global compositor coordinates
+
+	for m in monitors:
+		try:
+			wsid = m['activeWorkspace']['id']
+		except Exception:
+			continue
+
+		try:
+			scale = float(m.get('scale', 1)) or 1.0
+		except Exception:
+			scale = 1.0
+
+		try:
+			width = int(float(m['width']) / scale)
+			height = int(float(m['height']) / scale)
+		except Exception:
+			continue
+
+		if m.get('transform') in (1, 3, 5, 7):
+			width, height = height, width
+
+		ws_geom[wsid] = (max(1, width), max(1, height))
+		ws_origin[wsid] = (int(m.get('x', 0)), int(m.get('y', 0)))
+
+	# fallbacks in case monitor info is missing
+	fallback_w, fallback_h = (1920, 1080)
+	fallback_ox, fallback_oy = (0, 0)
+	if monitors:
+		m0 = monitors[0]
+		try:
+			scale = float(m0.get('scale', 1)) or 1.0
+		except Exception:
+			scale = 1.0
+		try:
+			width = int(float(m0['width']) / scale)
+			height = int(float(m0['height']) / scale)
+		except Exception:
+			width, height = fallback_w, fallback_h
+		if m0.get('transform') in (1, 3, 5, 7):
+			width, height = height, width
+		fallback_w, fallback_h = (max(1, width), max(1, height))
+		fallback_ox, fallback_oy = (int(m0.get('x', 0)), int(m0.get('y', 0)))
+
+
 
 	# 3) Save original states and make windows floating
 	saved_windows = []
 
 	# Compute non-overlapping sizes/positions for all windows in the workspace.
 	# We'll place them on a grid (cols x rows) that fits all windows. Each window
-	# will be at most a ration set in settings of the screen size and centered within its cell.
-	N = len(clients_in_ws)
+	# will be at most a ratio set in settings of the screen size and centered within its cell.
 	computed = {}
-	if N > 0:
-		monitors = json.loads(hyprctl(['monitors', '-j']).stdout)
-		screen_width = None
-		screen_height = None
-		for monitor in monitors:
-			if monitor['activeWorkspace']['id'] == int(workspace_id):
-				transform = monitor['transform'] in [1, 3, 5, 7]
-				screen_width = int(monitor['width'] / monitor['scale']) if not transform else int(monitor['height'] / monitor['scale'])
-				screen_height = int(monitor['height'] / monitor['scale']) if not transform else int(monitor['width'] / monitor['scale'])
-				break
-		if screen_width is None or screen_height is None:
-			if monitors:
-				monitor = monitors[0]
-				transform = monitor['transform'] in [1, 3, 5, 7]
-				screen_width = int(monitor['width'] / monitor['scale']) if not transform else int(monitor['height'] / monitor['scale'])
-				screen_height = int(monitor['height'] / monitor['scale']) if not transform else int(monitor['width'] / monitor['scale'])
+	for wsid, ws_clients in clients_by_ws.items():
+		N = len(ws_clients)
+		if N == 0:
+			continue
 
-		# If screen size could not be found, fall back to 1920x1080
-		if screen_width is None or screen_height is None:
-			screen_width = screen_width or 1920
-			screen_height = screen_height or 1080
+		sw, sh = ws_geom.get(wsid, (fallback_w, fallback_h))
+		sw = max(1, sw)
+		sh = max(1, sh)
 
-		cols = max(1, math.ceil(math.sqrt(N * (screen_width / screen_height)))) if screen_height > 0 else max(1, math.ceil(math.sqrt(N)))
+		if sh > 0:
+			cols = max(1, math.ceil(math.sqrt(N * (sw / sh))))
+		else:
+			cols = max(1, math.ceil(math.sqrt(N)))
 		rows = max(1, math.ceil(N / cols))
 
-		cell_w = max(1, int(screen_width / cols))
-		cell_h = max(1, int(screen_height / rows))
+		cell_w = max(1, int(sw / cols))
+		cell_h = max(1, int(sh / rows))
 
-		max_w = min(int(screen_width * RESIZE), int(cell_w * 0.9))
-		max_h = min(int(screen_height * RESIZE), int(cell_h * 0.9))
+		max_w = min(int(sw * RESIZE), int(cell_w * 0.9))
+		max_h = min(int(sh * RESIZE), int(cell_h * 0.9))
 
-		for i, c in enumerate(clients_in_ws):
-			col = i % cols
-			row = i // cols
+		for idx, client in enumerate(ws_clients):
+			col = idx % cols
+			row = idx // cols
 			w = max(1, max_w)
 			h = max(1, max_h)
 			x = int(col * cell_w + (cell_w - w) / 2)
 			y = int(row * cell_h + (cell_h - h) / 2)
-			computed[c.get('address')] = {'size': [w, h], 'at': [x, y]}
+			computed[client.get('address')] = {
+				'size': [w, h],
+				'at': [x, y],
+				'cell_w': cell_w,
+				'cell_h': cell_h,
+			}
 
 	# assign computed sizes/positions when making windows floating
-	placed_rects = []  # track placed rects to prevent overlaps after jitter: [x, y, w, h]
+	placed_rects = defaultdict(list)  # track rects per workspace to prevent overlaps
 	for c in clients_in_ws:
+		wsid = c['workspace']['id']
+		sw, sh = ws_geom.get(wsid, (fallback_w, fallback_h))  # per-monitor width/height
+
 		addr = c.get('address')
 		if not addr:
 			continue
+
 		comp = computed.get(addr, {})
-		anim_size = comp.get('size', c.get('size'))
+
+		if comp.get('size'):
+			anim_size = list(comp['size'])
+		else:
+			anim_size = list(c.get('size') or [int(sw * RESIZE), int(sh * RESIZE)])
 
 		if size:
-			anim_size[0] = min(anim_size[0], size[0])
-			anim_size[1] = min(anim_size[1], size[1])
+			try:
+				anim_size[0] = min(anim_size[0], size[0])
+				anim_size[1] = min(anim_size[1], size[1])
+			except Exception:
+				pass
 
-		# Add some randomness to the position so windows don't align perfectly
-		base_at = comp.get('at', c.get('at'))
+		base_at = comp.get('at')
+		if base_at is not None:
+			base_at = list(base_at)
+		else:
+			try:
+				cx, cy = c.get('at', [0, 0])
+				ox, oy = ws_origin.get(wsid, (fallback_ox, fallback_oy))
+				base_at = [int(cx) - ox, int(cy) - oy]
+			except Exception:
+				base_at = [0, 0]
+
+		cell_w = max(1, int(comp.get('cell_w', sw)))
+		cell_h = max(1, int(comp.get('cell_h', sh)))
+
+		anim_at = list(base_at)
 		if base_at:
 			# Use a unique random generator per window to avoid same offsets
 			rng = random.Random(str(addr))
-			cell_w = max(1, cell_w)
-			cell_h = max(1, cell_h)
-			w, h = anim_size
+			w, h = int(anim_size[0]), int(anim_size[1])
 			# Keep max offset within the free margin of the cell to avoid crossing cells
 			max_dx = max(0, int((cell_w - w) / 2))
 			max_dy = max(0, int((cell_h - h) / 2))
 			retries = 0
+			rects_for_ws = placed_rects[wsid]
 			while True:
 				dx = rng.randint(-max_dx, max_dx)
 				dy = rng.randint(-max_dy, max_dy)
 				x = base_at[0] + dx
 				y = base_at[1] + dy
 				# Ensure window is fully on screen
-				if not (0 <= x <= screen_width - w and 0 <= y <= screen_height - h):
+				if not (0 <= x <= sw - w and 0 <= y <= sh - h):
 					retries += 1
 					if retries > 50:
 						# fallback to clamped position if too many retries
-						x = min(max(0, x), screen_width - w)
-						y = min(max(0, y), screen_height - h)
+						x = min(max(0, x), sw - w)
+						y = min(max(0, y), sh - h)
 						anim_at = [x, y]
 						break
 					continue
 
-				# Check against already placed rects to avoid overlaps
+				# Check against already placed rects to avoid overlaps within workspace
 				overlap = False
-				for rx, ry, rw, rh in placed_rects:
+				for rx, ry, rw, rh in rects_for_ws:
 					if not (x + w <= rx or rx + rw <= x or y + h <= ry or ry + rh <= y):
 						overlap = True
 						break
@@ -152,7 +262,7 @@ def run_screensaver(manager, poll_interval=0.02, size=None):
 				retries += 1
 				if retries > 50:
 					# give up on jitter and use base position instead
-					anim_at = [base_at[0], base_at[1]]
+					anim_at = list(base_at)
 					break
 
 		# save minimal state including original client values so we can restore them
@@ -168,38 +278,55 @@ def run_screensaver(manager, poll_interval=0.02, size=None):
 		# Make floating and ensure size/position match animation values
 		hyprctl(['dispatch', 'setfloating', f'address:{addr}'])
 		if anim_size:
-			hyprctl(['dispatch', 'resizewindowpixel', 'exact', str(anim_size[0]), str(anim_size[1]), f',address:{addr}'])
+			hyprctl(['dispatch', 'resizewindowpixel', 'exact', str(int(anim_size[0])), str(int(anim_size[1])), f',address:{addr}'])
 		# Ensure we have a valid anim_at even if base_at wasn't available
 		if not base_at:
 			# fallback to client position or origin
 			anim_at = list(c.get('at') or [0, 0])
 			# clamp to screen
 			try:
-				w, h = anim_size
-				anim_at[0] = min(max(0, int(anim_at[0])), max(0, screen_width - w))
-				anim_at[1] = min(max(0, int(anim_at[1])), max(0, screen_height - h))
+				w, h = int(anim_size[0]), int(anim_size[1])
+				anim_at[0] = min(max(0, int(anim_at[0])), max(0, sw - w))
+				anim_at[1] = min(max(0, int(anim_at[1])), max(0, sh - h))
 			except Exception:
 				pass
 		if anim_at:
-			hyprctl(['dispatch', 'movewindowpixel', 'exact', str(anim_at[0]), str(anim_at[1]), f',address:{addr}'])
+			# convert RELATIVE (monitor-local) to GLOBAL (compositor)
+			ox, oy = ws_origin.get(wsid, (fallback_ox, fallback_oy))
+			gx = int(anim_at[0] + ox)
+			gy = int(anim_at[1] + oy)
+			hyprctl(['dispatch', 'movewindowpixel', 'exact', str(gx), str(gy), f',address:{addr}'])
 			# remember rect to avoid overlaps for next windows
-			placed_rects.append((anim_at[0], anim_at[1], anim_size[0], anim_size[1]))
+			placed_rects[wsid].append((anim_at[0], anim_at[1], int(anim_size[0]), int(anim_size[1])))
 
 		# Add to manager so it will be animated, pass pixel size and initial position to HyprDVD
-		manager.windows.append(HyprDVD.from_client(c, manager, size=anim_size, at=anim_at))
+		inst = HyprDVD.from_client(c, manager, size=anim_size, at=anim_at)
+		inst.screen_width  = sw
+		inst.screen_height = sh
+		inst.offset_x, inst.offset_y = ws_origin.get(wsid, (fallback_ox, fallback_oy))
+		manager.windows.append(inst)
 
 	if not manager.windows:
 		print('No windows found in current workspace to animate')
 		return
 
-	print(f'Running screensaver on workspace {workspace_id} with {len(manager.windows)} windows')
+	print(f'Running screensaver on workspaces {ws_ids} with {len(manager.windows)} windows')
+
+	# Choose exit behavior
+	stop_requested = False
+	if exit_on == 'signal':
+		import signal
+		def _sigint(*_):
+			nonlocal stop_requested
+			stop_requested = True
+		signal.signal(signal.SIGINT, _sigint)
 
 	# 4) Animate until cursor moves
 	try:
 		while True:
 			# check cursor movement
 			moved = False
-			if saved_cursor is not None:
+			if exit_on == 'pointer' and saved_cursor is not None:
 				try:
 					out = hyprctl(['cursorpos']).stdout.strip()
 					parts = out.replace(',', ' ').split()
@@ -211,7 +338,7 @@ def run_screensaver(manager, poll_interval=0.02, size=None):
 					# unable to read cursor; do not treat as moved
 					pass
 
-			if moved:
+			if moved or stop_requested:
 				print('Cursor moved — restoring windows and exiting screensaver')
 				break
 
